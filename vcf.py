@@ -4,6 +4,10 @@ import click
 import sys
 
 
+class INFO_FIELDS:
+    RANK_SCORE = "RankScore"
+
+
 @click.group()
 def cli():
     """A CLI tool for processing VCF files."""
@@ -51,7 +55,9 @@ def rankscore(file):
             info_field = line[7]
 
             # TODO: smth nicer:
-            print(line[0:7], _get_rank_score(info_field))
+            out = line[0:7]
+            out.append(_get_rank_score(info_field))
+            print("\t".join(out))
 
 
 def _is_csq_format_field(line):
@@ -60,9 +66,9 @@ def _is_csq_format_field(line):
 
 def _get_rank_score(line):
     # TODO: move rankscore key to some constant something
-    description_start = line.find("RankScore=") + len("RankScore=")
+    description_start = line.find(INFO_FIELDS.RANK_SCORE + "=") + len("RankScore=")
     line = line[description_start:].split(";")
-    return line[0]
+    return line[0].split(":")[1]
 
 
 # TODO: nah
@@ -72,8 +78,7 @@ def _get_info_field_index(key, fields):
             return idx
 
 
-def _parse_csq(file):
-    ...
+def _parse_csq(file): ...
 
 
 if __name__ == "__main__":
