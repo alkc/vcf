@@ -90,6 +90,12 @@ def _get_info_field_index(key, fields):
             return idx
 
 
+def _get_info_field(variant_line: str, info_field_name: str):
+    annotation_start = variant_line.find(f"{info_field_name}=")
+    variant_line = variant_line[annotation_start:]
+    return variant_line.split(";").pop(0)
+
+
 def _parse_csq(file): ...
 
 
