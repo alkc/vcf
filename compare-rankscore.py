@@ -10,48 +10,14 @@ RANK_SCORE_KEY = "RankScore="
 RANK_SCORE_KEY_LEN = len(RANK_SCORE_KEY)
 
 
-def open_vcf(path_to_vcf: str) -> Generator:
-    """
-    Open compressed/uncompressed vcf
-    """
-
-    def _vcf_file_generator():
-        if path_to_vcf.endswith(".gz"):
-            with gzip.open(path_to_vcf, "rt") as vcf_handle:
-                for line in vcf_handle:
-                    yield line
-        else:
-            with open(path_to_vcf, "rt") as vcf_handle:
-                for line in vcf_handle:
-                    yield line
-
-    return _vcf_file_generator()
-
-
-def get_id_fields(vcf_row):
-    vcf_row = vcf_row.split("\t")
-    return (vcf_row[0], vcf_row[1], vcf_row[3], vcf_row[4])
-
-
-def process_vcf_into_scores(vcf) -> dict[tuple, int]:
-    scores = {}
-
-    for line in vcf:
-        if line.startswith("#"):
-            continue
-        rank = _get_rankscore(line)
-        key = get_id_fields(line)
-        scores[key] = rank
-
-    return scores
-
-
 @click.command()
 @click.argument("vcf_file1", type=click.Path(exists=True))
 @click.argument("vcf_file2", type=click.Path(exists=True), required=False)
-def compare_rank_score(vcf_file1: str, vcf_file2: str | None = None):
+def compare_rank_score(vcf_file1: str, vcf_file2: str | None = None) -> None:
     """
-    derp
+    Print comparison of rank scores for two VCF files
+
+    Or just extract scores for one file, if you feel like it
     """
     vcf = open_vcf(vcf_file1)
     scores = process_vcf_into_scores(vcf)
@@ -72,6 +38,11 @@ def compare_rank_score(vcf_file1: str, vcf_file2: str | None = None):
 
         unique_keys = sorted(combined.keys(), key=lambda x: (x[0], int(x[1]), x[2], x[3]))
 
+        header = ["CHROM", "POS", "REF", "ALT"]
+        header += list(files)
+
+        print("\t".join(header))
+
         for key in unique_keys:
             row = list(key)
             score1 = str(combined[key].get(files[0], "NA"))
@@ -82,9 +53,52 @@ def compare_rank_score(vcf_file1: str, vcf_file2: str | None = None):
 
         exit()
 
-    for variant_ids, score in scores.items():
-        row = list(variant_ids) + [str(score)]
-        print("\t".join(row))
+    else:
+        for variant_ids, score in scores.items():
+            row = list(variant_ids) + [str(score)]
+            print("\t".join(row))
+
+
+def open_vcf(path_to_vcf: str) -> Generator:
+    """
+    Open compressed/uncompressed vcf
+    """
+
+    def _vcf_file_generator():
+        if path_to_vcf.endswith(".gz"):
+            with gzip.open(path_to_vcf, "rt") as vcf_handle:
+                for line in vcf_handle:
+                    yield line
+        else:
+            with open(path_to_vcf, "rt") as vcf_handle:
+                for line in vcf_handle:
+                    yield line
+
+    return _vcf_file_generator()
+
+
+def get_id_fields(vcf_row: str) -> tuple(str):
+    """
+    shrug emoji.
+
+    use namedtuple. move out of this module.
+    maybe convert pos to int already here.
+    """
+    vcf_row = vcf_row.split("\t")
+    return (vcf_row[0], vcf_row[1], vcf_row[3], vcf_row[4])
+
+
+def process_vcf_into_scores(vcf) -> dict[tuple, int]:
+    scores = {}
+
+    for line in vcf:
+        if line.startswith("#"):
+            continue
+        rank = _get_rankscore(line)
+        key = get_id_fields(line)
+        scores[key] = rank
+
+    return scores
 
 
 def _get_rankscore(line: str) -> int:
