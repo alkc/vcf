@@ -57,7 +57,8 @@ def compare_rank_score(vcf_file1: str, vcf_file2: str | None = None):
     scores = process_vcf_into_scores(vcf)
 
     if vcf_file2 is not None:
-        ...
+        files = (vcf_file1, vcf_file2)
+
         combined = defaultdict(dict)
 
         for key, score in scores.items():
@@ -68,6 +69,18 @@ def compare_rank_score(vcf_file1: str, vcf_file2: str | None = None):
 
         for key, score in scores2.items():
             combined[key][vcf_file2] = score
+
+        unique_keys = sorted(combined.keys(), key=lambda x: (x[0], int(x[1]), x[2], x[3]))
+
+        for key in unique_keys:
+            row = list(key)
+            score1 = str(combined[key].get(files[0], "NA"))
+            row.append(score1)
+            score2 = str(combined[key].get(files[1], "NA"))
+            row.append(score2)
+            print("\t".join(row))
+
+        exit()
 
     for variant_ids, score in scores.items():
         row = list(variant_ids) + [str(score)]
