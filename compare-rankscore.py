@@ -73,14 +73,10 @@ def open_vcf(path_to_vcf: str) -> Generator:
     """
 
     def _vcf_file_generator():
-        if path_to_vcf.endswith(".gz"):
-            with gzip.open(path_to_vcf, "rt") as vcf_handle:
-                for line in vcf_handle:
-                    yield line
-        else:
-            with open(path_to_vcf, "rt") as vcf_handle:
-                for line in vcf_handle:
-                    yield line
+        open_func = gzip.open if path_to_vcf.endswith(".gz") else open
+        with open_func(path_to_vcf, "rt") as vcf_handle:
+            for line in vcf_handle:
+                yield line
 
     return _vcf_file_generator()
 
