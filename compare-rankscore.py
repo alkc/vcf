@@ -51,8 +51,6 @@ def compare_rank_score(vcf_file1: str, vcf_file2: str | None = None) -> None:
             row.append(score2)
             print("\t".join(row))
 
-        exit()
-
     else:
         for variant_ids, score in scores.items():
             row = list(variant_ids) + [str(score)]
@@ -77,7 +75,7 @@ def open_vcf(path_to_vcf: str) -> Generator:
     return _vcf_file_generator()
 
 
-def get_id_fields(vcf_row: str) -> tuple(str):
+def get_id_fields(vcf_row: str) -> tuple[str]:
     """
     shrug emoji.
 
@@ -101,7 +99,17 @@ def process_vcf_into_scores(vcf) -> dict[tuple, int]:
     return scores
 
 
-def _get_rankscore(line: str) -> int:
+def _get_rankscore(line: str) -> int | None:
+    rank_score_idx = line.find(RANK_SCORE_KEY)
+
+    # TODO: should this return "missing"?
+    #       instead of None/NA later on
+    #       which would be synonymous w/
+    #       variant not existing in one of
+    #       compared files. dunno.
+    if rank_score_idx < 0:
+        return None
+
     score = line[line.find(RANK_SCORE_KEY) + RANK_SCORE_KEY_LEN :].split(":")[1].split(";")[0]
     return int(score)
 
