@@ -10,7 +10,7 @@ RANK_SCORE_KEY = "RankScore"
 RANK_SCORE_KEY_LEN = len(RANK_SCORE_KEY)
 
 
-@click.command()
+@click.command(help="Print nextflow_wgs rank scores for up to two VCF files")
 @click.argument("vcf_file1", type=click.Path(exists=True))
 @click.argument("vcf_file2", type=click.Path(exists=True), required=False)
 @click.option(
