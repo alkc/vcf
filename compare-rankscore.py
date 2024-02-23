@@ -13,7 +13,15 @@ RANK_SCORE_KEY_LEN = len(RANK_SCORE_KEY)
 @click.command()
 @click.argument("vcf_file1", type=click.Path(exists=True))
 @click.argument("vcf_file2", type=click.Path(exists=True), required=False)
-def compare_rank_score(vcf_file1: str, vcf_file2: str | None = None) -> None:
+@click.option(
+    "--skip-identical",
+    is_flag=True,
+    default=False,
+    help="Only print variants where scores diff between compared files.",
+)
+def compare_rank_score(
+    vcf_file1: str, vcf_file2: str | None = None, skip_identical: bool = False
+) -> None:
     """
     Print comparison of rank scores for two VCF files
 
@@ -48,6 +56,8 @@ def compare_rank_score(vcf_file1: str, vcf_file2: str | None = None) -> None:
             score1 = str(combined[key].get(files[0], "NA"))
             row.append(score1)
             score2 = str(combined[key].get(files[1], "NA"))
+            if skip_identical and (score1 == score2):
+                continue
             row.append(score2)
             print("\t".join(row))
 
