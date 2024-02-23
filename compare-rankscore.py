@@ -19,8 +19,17 @@ RANK_SCORE_KEY_LEN = len(RANK_SCORE_KEY)
     default=False,
     help="Only print variants where scores diff between compared files.",
 )
+@click.option(
+    "--output-difference",
+    is_flag=True,
+    default=False,
+    help="Only print variants where scores diff between compared files.",
+)
 def compare_rank_score(
-    vcf_file1: str, vcf_file2: str | None = None, skip_identical: bool = False
+    vcf_file1: str,
+    vcf_file2: str | None = None,
+    skip_identical: bool = False,
+    output_difference: bool = False,
 ) -> None:
     """
     Print comparison of rank scores for two VCF files
@@ -49,6 +58,10 @@ def compare_rank_score(
         header = ["CHROM", "POS", "REF", "ALT"]
         header += list(files)
 
+        if output_difference:
+            header.append("diff_vcf1_to_vcf2")
+            header.append("absolute_difference")
+
         print("\t".join(header))
 
         for key in unique_keys:
@@ -58,7 +71,15 @@ def compare_rank_score(
             score2 = str(combined[key].get(files[1], "NA"))
             if skip_identical and (score1 == score2):
                 continue
+
             row.append(score2)
+
+            if output_difference:
+                # TODO: convert back into ints? sure. for now.
+                diff = str(int(score2) - int(score1))
+                row.append(diff)
+                row.append(diff.lstrip("-"))
+
             print("\t".join(row))
 
     else:
