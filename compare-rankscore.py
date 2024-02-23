@@ -6,7 +6,7 @@ from typing import Generator
 
 import click
 
-RANK_SCORE_KEY = "RankScore="
+RANK_SCORE_KEY = "RankScore"
 RANK_SCORE_KEY_LEN = len(RANK_SCORE_KEY)
 
 
