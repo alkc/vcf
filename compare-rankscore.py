@@ -98,6 +98,9 @@ def compare_rank_score(
 
     else:
         for variant_ids, score in scores.items():
+            if only_scores_above is not None and score < only_scores_above:
+                continue
+
             row = list(variant_ids) + [str(score)]
             print("\t".join(row))
 
