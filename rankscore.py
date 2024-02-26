@@ -6,8 +6,12 @@ from typing import Generator
 
 import click
 
-RANK_SCORE_KEY = "RankScore"
-RANK_SCORE_KEY_LEN = len(RANK_SCORE_KEY)
+from constants import INFO_FIELDS
+
+# from uniplot import plot
+
+
+RANK_SCORE_KEY_LEN = len(INFO_FIELDS.RANK_SCORE)
 
 
 @click.command(help="Print nextflow_wgs rank scores for up to two VCF files")
@@ -136,15 +140,15 @@ def process_vcf_into_scores(vcf) -> dict[tuple, int]:
     for line in vcf:
         if line.startswith("#"):
             continue
-        rank = _get_rankscore(line)
+        rank = get_rankscore(line)
         key = get_id_fields(line)
         scores[key] = rank
 
     return scores
 
 
-def _get_rankscore(line: str) -> int | None:
-    rank_score_idx = line.find(RANK_SCORE_KEY)
+def get_rankscore(line: str) -> int | None:
+    rank_score_idx = line.find(INFO_FIELDS.RANK_SCORE)
 
     # TODO: should this return "missing"?
     #       instead of None/NA later on
@@ -154,7 +158,9 @@ def _get_rankscore(line: str) -> int | None:
     if rank_score_idx < 0:
         return None
 
-    score = line[line.find(RANK_SCORE_KEY) + RANK_SCORE_KEY_LEN :].split(":")[1].split(";")[0]
+    score = (
+        line[line.find(INFO_FIELDS.RANK_SCORE) + RANK_SCORE_KEY_LEN :].split(":")[1].split(";")[0]
+    )
     return int(score)
 
 
