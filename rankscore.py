@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import gzip
+import sys
 from collections import defaultdict
 from typing import Generator
 
@@ -8,6 +9,7 @@ import click
 from uniplot import plot
 
 from constants import INFO_FIELDS
+from vcffile import VCF
 
 RANK_SCORE_KEY_LEN = len(INFO_FIELDS.RANK_SCORE)
 
@@ -59,73 +61,68 @@ def compare_rank_score(
     plot_data["x"] = []
     plot_data["y"] = []
 
-    if vcf_file2 is not None:
-        files = (vcf_file1, vcf_file2)
-        combined = defaultdict(dict)
+    if vcf_file2 is None:
+        print_rankscore_single_file(vcf_file1, only_scores_above, output_type)
+        sys.exit()
 
-        for key, score in scores.items():
-            combined[key][vcf_file1] = score
+    files = (vcf_file1, vcf_file2)
+    combined = defaultdict(dict)
 
-        vcf2 = open_vcf(vcf_file2)
-        scores2 = process_vcf_into_scores(vcf2)
+    for key, score in scores.items():
+        combined[key][vcf_file1] = score
 
-        for key, score in scores2.items():
-            combined[key][vcf_file2] = score
+    vcf2 = open_vcf(vcf_file2)
+    scores2 = process_vcf_into_scores(vcf2)
 
-        unique_keys = sorted(combined.keys(), key=lambda x: (x[0], int(x[1]), x[2], x[3]))
+    for key, score in scores2.items():
+        combined[key][vcf_file2] = score
 
-        header = ["CHROM", "POS", "REF", "ALT"]
-        header += list(files)
+    unique_keys = sorted(combined.keys(), key=lambda x: (x[0], int(x[1]), x[2], x[3]))
+
+    header = ["CHROM", "POS", "REF", "ALT"]
+    header += list(files)
+
+    if output_difference:
+        header.append("diff_vcf1_to_vcf2")
+        header.append("absolute_difference")
+
+    print("\t".join(header))
+
+    for key in unique_keys:
+        row = list(key)
+
+        score1 = combined[key].get(files[0], "NA")
+        score2 = combined[key].get(files[1], "NA")
+
+        if skip_identical and (score1 == score2):
+            continue
+
+        if only_scores_above is not None and (
+            score1 < only_scores_above and score2 < only_scores_above
+        ):
+            continue
+
+        if output_type == "plot":
+            plot_data["x"].append(score1)
+            plot_data["y"].append(score2)
+            continue
+
+        row.append(score1)
+        row.append(score2)
 
         if output_difference:
-            header.append("diff_vcf1_to_vcf2")
-            header.append("absolute_difference")
+            # TODO: convert back into ints? sure. for now.
 
-        print("\t".join(header))
+            if any(x == "NA" for x in (score1, score2)):
+                row.append("")
+                row.append("")
 
-        for key in unique_keys:
-            row = list(key)
+            else:
+                diff = score2 - score1
+                row.append(diff)
+                row.append(str(diff).lstrip("-"))
 
-            score1 = combined[key].get(files[0], "NA")
-            score2 = combined[key].get(files[1], "NA")
-
-            if skip_identical and (score1 == score2):
-                continue
-
-            if only_scores_above is not None and (
-                score1 < only_scores_above and score2 < only_scores_above
-            ):
-                continue
-
-            if output_type == "plot":
-                plot_data["x"].append(score1)
-                plot_data["y"].append(score2)
-                continue
-
-            row.append(score1)
-            row.append(score2)
-
-            if output_difference:
-                # TODO: convert back into ints? sure. for now.
-
-                if any(x == "NA" for x in (score1, score2)):
-                    row.append("")
-                    row.append("")
-
-                else:
-                    diff = score2 - score1
-                    row.append(diff)
-                    row.append(str(diff).lstrip("-"))
-
-            print("\t".join(str(x) for x in row))
-
-    else:
-        for variant_ids, score in scores.items():
-            if only_scores_above is not None and score < only_scores_above:
-                continue
-
-            row = list(variant_ids) + [str(score)]
-            print("\t".join(row))
+        print("\t".join(str(x) for x in row))
 
     if output_type == "plot":
         plot_data["x"] = [None if x == "NA" else x for x in plot_data["x"]]
@@ -142,6 +139,33 @@ def compare_rank_score(
             width=100,
             height=31,
         )
+
+
+def print_rankscore_single_file(vcf_file1, only_scores_above, output_type):
+    infile = VCF(vcf_file1)
+    # header = ["CHROM", "POS", "REF", "ALT"]
+
+    from collections import Counter
+
+    plot_data = Counter()
+
+    for variant in infile.get_rows():
+        rank_score = get_rankscore(variant)
+
+        if only_scores_above is not None and rank_score is not None:
+            if rank_score < only_scores_above:
+                continue
+
+        if output_type == "plot":
+            plot_data[rank_score] += 1
+            continue
+
+    if output_type == "plot":
+        xs = [int(x) for x in plot_data.keys()]
+        ys = [y for y in plot_data.values()]
+
+        plot(ys, xs, width=100, height=25, x_gridlines=[17])
+        return
 
 
 def open_vcf(path_to_vcf: str) -> Generator:
