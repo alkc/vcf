@@ -25,11 +25,18 @@ RANK_SCORE_KEY_LEN = len(RANK_SCORE_KEY)
     default=False,
     help="Only print variants where scores diff between compared files.",
 )
+@click.option(
+    "--only-scores-above",
+    default=None,
+    type=int,
+    help="Only print variants where scores diff between compared files.",
+)
 def compare_rank_score(
     vcf_file1: str,
     vcf_file2: str | None = None,
     skip_identical: bool = False,
     output_difference: bool = False,
+    only_scores_above: int | None = None,
 ) -> None:
     """
     Print comparison of rank scores for two VCF files
@@ -66,21 +73,28 @@ def compare_rank_score(
 
         for key in unique_keys:
             row = list(key)
-            score1 = str(combined[key].get(files[0], "NA"))
-            row.append(score1)
-            score2 = str(combined[key].get(files[1], "NA"))
+
+            score1 = combined[key].get(files[0], "NA")
+            score2 = combined[key].get(files[1], "NA")
+
             if skip_identical and (score1 == score2):
                 continue
 
+            if only_scores_above is not None and (
+                score1 < only_scores_above and score2 < only_scores_above
+            ):
+                continue
+
+            row.append(score1)
             row.append(score2)
 
             if output_difference:
                 # TODO: convert back into ints? sure. for now.
-                diff = str(int(score2) - int(score1))
+                diff = score2 - score1
                 row.append(diff)
-                row.append(diff.lstrip("-"))
+                row.append(str(diff).lstrip("-"))
 
-            print("\t".join(row))
+            print("\t".join(str(x) for x in row))
 
     else:
         for variant_ids, score in scores.items():
