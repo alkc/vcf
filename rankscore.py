@@ -5,11 +5,9 @@ from collections import defaultdict
 from typing import Generator
 
 import click
+from uniplot import plot
 
 from constants import INFO_FIELDS
-
-# from uniplot import plot
-
 
 RANK_SCORE_KEY_LEN = len(INFO_FIELDS.RANK_SCORE)
 
@@ -35,12 +33,19 @@ RANK_SCORE_KEY_LEN = len(INFO_FIELDS.RANK_SCORE)
     type=int,
     help="Only print variants where scores diff between compared files.",
 )
+@click.option(
+    "--output-type",
+    default="tsv",
+    type=str,
+    help="Only print variants where scores diff between compared files.",
+)
 def compare_rank_score(
     vcf_file1: str,
     vcf_file2: str | None = None,
     skip_identical: bool = False,
     output_difference: bool = False,
     only_scores_above: int | None = None,
+    output_type: str = "tsv",
 ) -> None:
     """
     Print comparison of rank scores for two VCF files
@@ -49,6 +54,10 @@ def compare_rank_score(
     """
     vcf = open_vcf(vcf_file1)
     scores = process_vcf_into_scores(vcf)
+
+    plot_data = {}
+    plot_data["x"] = []
+    plot_data["y"] = []
 
     if vcf_file2 is not None:
         files = (vcf_file1, vcf_file2)
@@ -89,14 +98,25 @@ def compare_rank_score(
             ):
                 continue
 
+            if output_type == "plot":
+                plot_data["x"].append(score1)
+                plot_data["y"].append(score2)
+                continue
+
             row.append(score1)
             row.append(score2)
 
             if output_difference:
                 # TODO: convert back into ints? sure. for now.
-                diff = score2 - score1
-                row.append(diff)
-                row.append(str(diff).lstrip("-"))
+
+                if any(x == "NA" for x in (score1, score2)):
+                    row.append("")
+                    row.append("")
+
+                else:
+                    diff = score2 - score1
+                    row.append(diff)
+                    row.append(str(diff).lstrip("-"))
 
             print("\t".join(str(x) for x in row))
 
@@ -107,6 +127,20 @@ def compare_rank_score(
 
             row = list(variant_ids) + [str(score)]
             print("\t".join(row))
+
+    if output_type == "plot":
+        plot_data["x"] = [None if x == "NA" else x for x in plot_data["x"]]
+        plot_data["y"] = [None if y == "NA" else y for y in plot_data["y"]]
+
+        plot(
+            plot_data["x"],
+            plot_data["y"],
+            title=files,
+            lines=False,
+            color=True,
+            x_gridlines=[17],
+            y_gridlines=[17],
+        )
 
 
 def open_vcf(path_to_vcf: str) -> Generator:
