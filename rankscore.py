@@ -61,7 +61,6 @@ def compare_rank_score(
 
     if vcf_file2 is not None:
         files = (vcf_file1, vcf_file2)
-
         combined = defaultdict(dict)
 
         for key, score in scores.items():
@@ -140,6 +139,8 @@ def compare_rank_score(
             color=True,
             x_gridlines=[17],
             y_gridlines=[17],
+            width=100,
+            height=31,
         )
 
 
