@@ -51,6 +51,47 @@ class VCF:
 
         return _vcf_generator()
 
+    def get_header(self):
+        header = []
+
+        with self._open_func(self.vcf_file, "rt") as vcf:
+            for line in vcf:
+                if not line.startswith("#"):
+                    break
+                header.append(line)
+
+        return "\n".join(header)
+
+    def get_info_meta(self, id: str):
+        header = self.get_header()
+
+        query = f"##INFO=<ID={id}"
+
+        result_idx = header.find(query)
+        header = header[result_idx:]
+        header = header.split(">")[0]
+        header = header.removeprefix("##INFO=<")
+        header = header.split(",")
+
+        info_meta = [x.split("=") for x in header]
+        print(info_meta)
+
+        return {x[0]: x[1] for x in info_meta}
+
     def set_tabix(self, path_to_bgzipped_vcf: str):
         tbi_should_be_here = f"{path_to_bgzipped_vcf}.tbi"
         self.tabix_index_file_exists = os.path.isfile(tbi_should_be_here)
+
+
+def open_vcf(path_to_vcf: str) -> Generator:
+    """
+    Open compressed/uncompressed vcf
+    """
+
+    def _vcf_file_generator():
+        open_func = gzip.open if path_to_vcf.endswith(".gz") else open
+        with open_func(path_to_vcf, "rt") as vcf_handle:
+            for line in vcf_handle:
+                yield line
+
+    return _vcf_file_generator()
