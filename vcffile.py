@@ -37,11 +37,14 @@ class VCF:
 
         return True
 
-    def get_rows(self) -> Generator:
+    def get_rows(self, skip_mito: bool = False) -> Generator:
         def _vcf_generator():
             with self._open_func(self.vcf_file, "rt") as vcf:
                 for variant in vcf:
                     if variant.startswith("#"):
+                        continue
+
+                    if skip_mito and variant.startswith("M"):
                         continue
 
                     if not self._passes_filters(variant):
@@ -97,6 +100,9 @@ class VCF:
                 continue
 
             yield variant
+
+    def nbr_variants(self, skip_mito: bool = False) -> int:
+        return len([_ for _ in self.get_rows(skip_mito=skip_mito)])
 
 
 def open_vcf(path_to_vcf: str) -> Generator:
