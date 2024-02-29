@@ -74,7 +74,6 @@ class VCF:
         header = header.split(",")
 
         info_meta = [x.split("=") for x in header]
-        print(info_meta)
 
         return {x[0]: x[1] for x in info_meta}
 
