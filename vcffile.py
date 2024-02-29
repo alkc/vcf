@@ -82,6 +82,23 @@ class VCF:
         tbi_should_be_here = f"{path_to_bgzipped_vcf}.tbi"
         self.tabix_index_file_exists = os.path.isfile(tbi_should_be_here)
 
+    def get_range(self, chromosome: str, start: int, end: int):
+        variants = self.get_rows()
+
+        for variant in variants:
+            if not variant.split("\t")[0] == chromosome:
+                continue
+
+            position = int(variant.split("\t")[1])
+
+            if position < start:
+                continue
+
+            if position > end:
+                continue
+
+            yield variant
+
 
 def open_vcf(path_to_vcf: str) -> Generator:
     """
