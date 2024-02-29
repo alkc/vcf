@@ -12,4 +12,17 @@ class VCF_FIELDS:
 
 class INFO_FIELDS:
     RANK_SCORE = "RankScore"
+    RANK_RESULT = "RankResult"
     CADD_SCORE = "CADD"
+    PHYLOP100WAY = "dbNSFP_phyloP100way_vertebrate"
+    PHASTCONS100WAY = "dbNSFP_phastCons100way_vertebrate"
+    CLINVAR_SIGNIFICANCE = "CLNSIG"
+    CLINVAR_REVIEW_STATUS = "CLNREVSTAT"
+    CLINVAR_ACCESSION = "CLNACC"
+    zzz = "Annotation"
+    GNOMADAF = "GNOMADAF"
+    GNOMADAF_MAX = "GNOMADAF_MAX"
+    GNOMADPOP_MAX = "GNOMADPOP_MAX"
+    MOST_SEVERE_CONSEQUENCE = "most_severe_consequence"
+    COMPOUNDS = "Compounds"
+    GENETICMODELS = "GeneticModels"
