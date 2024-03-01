@@ -4,3 +4,7 @@
 
 Stuff for dealing w/ VCFs mostly for raredisease work [@Clinical-genomics-lund
 ](https://github.com/Clinical-Genomics-Lund/)
+
+## Instructions
+
+No. At least not yet.
