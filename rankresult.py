@@ -23,7 +23,7 @@ def compare_rank_score(vcf_file1: str, chr_range: str | None = None) -> None:
     lines = []
 
     tsv_header = ["CHROM", "POS", "REF", "ALT"] + rank_score_components + ["total_score"]
-    for variant in vcf.get_range(chromosome, start, end):
+    for variant in vcf.get_range(chromosome, start, end, _skip_progress=True):
         result = get_rankresult(variant)
 
         if not result:
