@@ -3,9 +3,10 @@ import logging
 import os
 from typing import Callable, Generator
 
-import tabix
-
 from util import print_percent_done
+
+# import tabix
+
 
 logging.basicConfig(level=logging.INFO)
 
@@ -57,16 +58,17 @@ class VCF:
 
         return True
 
-    def get_rows(self, skip_mito: bool = False) -> Generator:
+    def get_rows(self, skip_mito: bool = False, _skip_progress=False) -> Generator:
         def _vcf_generator():
             with self._open_func(self.vcf_file, "rt") as vcf:
                 hits = 0
                 for idx, variant in enumerate(vcf):
-                    print_percent_done(
-                        idx,
-                        self._total_nbr_records,
-                        title=" Processing records",
-                    )
+                    if not _skip_progress:
+                        print_percent_done(
+                            idx,
+                            self._total_nbr_records,
+                            title=" Processing records",
+                        )
 
                     if variant.startswith("#"):
                         continue
@@ -114,13 +116,16 @@ class VCF:
         tbi_should_be_here = f"{path_to_bgzipped_vcf}.tbi"
         self.tabix_index_file_exists = os.path.isfile(tbi_should_be_here)
 
-    def get_range(self, chromosome: str, start: int, end: int):
-        if self.tabix_index_file_exists:
-            LOG.info("Tabix!")
-            tb = tabix.open(self.vcf_file)
-            variants = tb.query(chromosome, start, end)
-        else:
-            variants = self.get_rows()
+    def get_range(self, chromosome: str, start: int, end: int, _skip_progress=False):
+        variants = self.get_rows(_skip_progress=_skip_progress)
+        #         if self.tabix_index_file_exists:
+        #             variants =
+        #             LOG.info("Tabix!")
+        #             tb = tabix.open(self.vcf_file)
+        #             variants = tb.query(chromosome, start, end)
+        # )
+        #         else:
+        #             variants = self.get_rows()
 
         for variant in variants:
             if not variant.split("\t")[0] == chromosome:
