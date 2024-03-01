@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 
 import gzip
-import sys
 from collections import defaultdict
-from typing import Generator
+from typing import Callable, Generator
 
 import click
 from uniplot import plot
 
 from constants import INFO_FIELDS
+from filters import only_clnsg_pathogenic
 from vcffile import VCF
 
 RANK_SCORE_KEY_LEN = len(INFO_FIELDS.RANK_SCORE)
@@ -41,52 +41,53 @@ RANK_SCORE_KEY_LEN = len(INFO_FIELDS.RANK_SCORE)
     type=str,
     help="Only print variants where scores diff between compared files.",
 )
-def compare_rank_score(
+@click.option(
+    "--only-pathogenic",
+    is_flag=True,
+    default=False,
+    help="Only pathogenic variants.",
+)
+def rankscore(
     vcf_file1: str,
     vcf_file2: str | None = None,
     skip_identical: bool = False,
     output_difference: bool = False,
     only_scores_above: int | None = None,
     output_type: str = "tsv",
+    only_pathogenic: bool = False,
 ) -> None:
     """
     Print comparison of rank scores for two VCF files
 
     Or just extract scores for one file, if you feel like it
     """
-    vcf = open_vcf(vcf_file1)
-    scores = process_vcf_into_scores(vcf)
 
-    plot_data = {}
-    plot_data["x"] = []
-    plot_data["y"] = []
+    filters = []
 
-    if vcf_file2 is None:
-        print_rankscore_single_file(vcf_file1, only_scores_above, output_type)
-        sys.exit()
+    if only_pathogenic:
+        filters.append(only_clnsg_pathogenic)
 
-    files = (vcf_file1, vcf_file2)
-    combined = defaultdict(dict)
+    vcf = _setup_vcf(VCF(vcf_file1), filters)
 
-    for key, score in scores.items():
-        combined[key][vcf_file1] = score
+    if vcf_file2 is not None:
+        vcf2 = _setup_vcf(VCF(vcf_file2), filters)
+        rank_score_data = compare_rank_scores(vcf, vcf2)
 
-    vcf2 = open_vcf(vcf_file2)
-    scores2 = process_vcf_into_scores(vcf2)
+    unique_keys = sorted(rank_score_data.keys(), key=lambda x: (x[0], int(x[1]), x[2], x[3]))
 
-    for key, score in scores2.items():
-        combined[key][vcf_file2] = score
-
-    unique_keys = sorted(combined.keys(), key=lambda x: (x[0], int(x[1]), x[2], x[3]))
+    files = [vcf.vcf_file, vcf2.vcf_file]
 
     header = ["CHROM", "POS", "REF", "ALT"]
-    header += list(files)
+    header += files
+
+    combined = rank_score_data
 
     if output_difference:
         header.append("diff_vcf1_to_vcf2")
         header.append("absolute_difference")
 
     print("\t".join(header))
+    plot_data = defaultdict(list)
 
     for key in unique_keys:
         row = list(key)
@@ -114,8 +115,8 @@ def compare_rank_score(
             # TODO: convert back into ints? sure. for now.
 
             if any(x == "NA" for x in (score1, score2)):
-                row.append("")
-                row.append("")
+                row.append("NA")
+                row.append("NA")
 
             else:
                 diff = score2 - score1
@@ -141,31 +142,15 @@ def compare_rank_score(
         )
 
 
-def print_rankscore_single_file(vcf_file1, only_scores_above, output_type):
-    infile = VCF(vcf_file1)
-    # header = ["CHROM", "POS", "REF", "ALT"]
+def compare_rank_scores(vcf: VCF, vcf2: VCF) -> dict[tuple, dict[str, int | None]]:
+    scores_side_by_side = defaultdict(dict)
 
-    from collections import Counter
+    for curr_vcf in [vcf, vcf2]:
+        scores = reduce_vcf_to_rankscores(curr_vcf)
+        for variant_id, rank_score in scores.items():
+            scores_side_by_side[variant_id][curr_vcf.vcf_file] = rank_score
 
-    plot_data = Counter()
-
-    for variant in infile.get_rows():
-        rank_score = get_rankscore(variant)
-
-        if only_scores_above is not None and rank_score is not None:
-            if rank_score < only_scores_above:
-                continue
-
-        if output_type == "plot":
-            plot_data[rank_score] += 1
-            continue
-
-    if output_type == "plot":
-        xs = [int(x) for x in plot_data.keys()]
-        ys = [y for y in plot_data.values()]
-
-        plot(ys, xs, width=100, height=25, x_gridlines=[17])
-        return
+    return scores_side_by_side
 
 
 def open_vcf(path_to_vcf: str) -> Generator:
@@ -193,20 +178,18 @@ def get_id_fields(vcf_row: str) -> tuple[str]:
     return (vcf_row[0], vcf_row[1], vcf_row[3], vcf_row[4])
 
 
-def process_vcf_into_scores(vcf) -> dict[tuple, int]:
+def reduce_vcf_to_rankscores(vcf: VCF) -> dict[tuple, int]:
     scores = {}
 
-    for line in vcf:
-        if line.startswith("#"):
-            continue
-        rank = get_rankscore(line)
+    for line in vcf.variants():
+        rank = _rankscore(line)
         key = get_id_fields(line)
         scores[key] = rank
 
     return scores
 
 
-def get_rankscore(line: str) -> int | None:
+def _rankscore(line: str) -> int | None:
     rank_score_idx = line.find(INFO_FIELDS.RANK_SCORE)
 
     # TODO: should this return "missing"?
@@ -223,5 +206,13 @@ def get_rankscore(line: str) -> int | None:
     return int(score)
 
 
+def _setup_vcf(vcf: VCF, filters: list[Callable] | None = None):
+    if filters:
+        for f in filters:
+            vcf.add_filter(f)
+
+    return vcf
+
+
 if __name__ == "__main__":
-    compare_rank_score()
+    rankscore()
