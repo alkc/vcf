@@ -26,3 +26,8 @@ class INFO_FIELDS:
     MOST_SEVERE_CONSEQUENCE = "most_severe_consequence"
     COMPOUNDS = "Compounds"
     GENETICMODELS = "GeneticModels"
+
+
+class CLNSIG:
+    PATHOGENIC = "Pathogenic"
+    BENIGN = "Benign"
