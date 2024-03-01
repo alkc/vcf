@@ -1,6 +1,15 @@
 import gzip
+import logging
 import os
 from typing import Callable, Generator
+
+import tabix
+
+from util import print_percent_done
+
+logging.basicConfig(level=logging.INFO)
+
+LOG = logging.getLogger(__name__)
 
 
 class VCF:
@@ -11,6 +20,9 @@ class VCF:
         self._active_filters = []
         self._open_func = open
 
+        self._nbr_records = None
+        self._header_stop = None
+
         if path is not None:
             self.open_file(path)
 
@@ -20,6 +32,14 @@ class VCF:
         if vcf_file.endswith(".gz"):
             self._open_func = gzip.open
             self.set_tabix(vcf_file)
+            self._total_nbr_records = sum(1 for _ in self._get_rows())
+
+    def _get_rows(self) -> Generator:
+        with self._open_func(self.vcf_file, "rt") as f:
+            for line in f:
+                if line.startswith("#"):
+                    continue
+                yield line
 
     def add_filter(self, filter_function: Callable[[str], bool]) -> None:
         self._active_filters.append(filter_function)
@@ -40,7 +60,14 @@ class VCF:
     def get_rows(self, skip_mito: bool = False) -> Generator:
         def _vcf_generator():
             with self._open_func(self.vcf_file, "rt") as vcf:
-                for variant in vcf:
+                hits = 0
+                for idx, variant in enumerate(vcf):
+                    print_percent_done(
+                        idx,
+                        self._total_nbr_records,
+                        title=" Processing records",
+                    )
+
                     if variant.startswith("#"):
                         continue
 
@@ -50,9 +77,12 @@ class VCF:
                     if not self._passes_filters(variant):
                         continue
 
+                    hits += 1
                     yield variant
 
         return _vcf_generator()
+
+    variants = get_rows
 
     def get_header(self):
         header = []
@@ -85,7 +115,12 @@ class VCF:
         self.tabix_index_file_exists = os.path.isfile(tbi_should_be_here)
 
     def get_range(self, chromosome: str, start: int, end: int):
-        variants = self.get_rows()
+        if self.tabix_index_file_exists:
+            LOG.info("Tabix!")
+            tb = tabix.open(self.vcf_file)
+            variants = tb.query(chromosome, start, end)
+        else:
+            variants = self.get_rows()
 
         for variant in variants:
             if not variant.split("\t")[0] == chromosome:
@@ -102,7 +137,7 @@ class VCF:
             yield variant
 
     def nbr_variants(self, skip_mito: bool = False) -> int:
-        return len([_ for _ in self.get_rows(skip_mito=skip_mito)])
+        return sum(1 for _ in self.get_rows(skip_mito=skip_mito))
 
 
 def open_vcf(path_to_vcf: str) -> Generator:
