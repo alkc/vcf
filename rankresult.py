@@ -1,41 +1,70 @@
 #!/usr/bin/env python3
 import csv
+import io
 import re
-from io import StringIO
 
 import click
 
 from constants import INFO_FIELDS
+from rankscore import _rankscore
 from vcffile import VCF
 
+RANK_SCORE_COL_NAME = "info_field_rank_score"
+RANK_RESULT_SUM_COL_NAME = "rank_result_sum"
 RANK_RESULT_PATTERN = rf"{INFO_FIELDS.RANK_RESULT}=([-\d|\|]+)"
 
 
 @click.command(help="Output rankresults in TSV")
 @click.argument("vcf_file1", type=click.Path(exists=True))
-@click.argument("chr_range", type=str, required=False)
-def compare_rank_score(vcf_file1: str, chr_range: str | None = None) -> None:
+@click.option(
+    "--positions",
+    "-p",
+    type=click.File("r"),
+    default="-",
+    help='File with chromosome positions (or "-" for stdin)',
+)
+def parse_rank_result(vcf_file1: str, positions: io.TextIOBase) -> None:
     vcf = VCF(vcf_file1)
     rank_score_components = rank_keys(vcf)
 
-    chromosome, start, end = parse_range(chr_range)
+    output_header = rank_score_components.copy()
+    output_header.append(RANK_RESULT_SUM_COL_NAME)
+    output_header.append(RANK_SCORE_COL_NAME)
 
     lines = []
 
-    tsv_header = ["CHROM", "POS", "REF", "ALT"] + rank_score_components + ["total_score"]
-    for variant in vcf.get_range(chromosome, start, end, _skip_progress=True):
-        result = get_rankresult(variant)
+    tsv_header = (
+        ["CHROM", "POS", "REF", "ALT"]
+        + rank_score_components
+        + [RANK_RESULT_SUM_COL_NAME, RANK_SCORE_COL_NAME]
+    )
 
-        if not result:
+    for line in positions:
+        if line.startswith("#"):
             continue
 
-        result = dict(zip(rank_score_components, result))
-        id = get_id_fields(variant)
+        chromosome, position = line.split("\t")
 
-        id.update(result)
-        lines.append(id)
+        for variant in vcf.get_range(
+            chromosome=chromosome, start=int(position), end=int(position), _skip_progress=True
+        ):
+            result = get_rankresult(variant)
 
-    stdout = StringIO()
+            if not result:
+                continue
+
+            total_score = sum(int(score) for score in result)
+
+            result.append(total_score)
+            result.append(_rankscore(variant))
+
+            result = dict(zip(output_header, result))
+            id = get_id_fields(variant)
+
+            id.update(result)
+            lines.append(id)
+
+    stdout = io.StringIO()
     writer = csv.DictWriter(stdout, fieldnames=tsv_header, delimiter="\t")
     writer.writeheader()
     writer.writerows(lines)
@@ -77,4 +106,4 @@ def get_rankresult(variant: str) -> int | None:
 
 
 if __name__ == "__main__":
-    compare_rank_score()
+    parse_rank_result()
