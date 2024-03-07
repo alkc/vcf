@@ -116,6 +116,9 @@ class VCF:
         tbi_should_be_here = f"{path_to_bgzipped_vcf}.tbi"
         self.tabix_index_file_exists = os.path.isfile(tbi_should_be_here)
 
+    def get_position(self, chromosome: str, position: int):
+        return self.get_range(chromosome, start=position, end=position, _skip_progress=True)
+
     def get_range(self, chromosome: str, start: int, end: int, _skip_progress=False):
         variants = self.get_rows(_skip_progress=_skip_progress)
         #         if self.tabix_index_file_exists:
