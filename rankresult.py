@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import csv
 import io
+import logging
 import re
 
 import click
@@ -17,13 +18,22 @@ RANK_RESULT_PATTERN = rf"{INFO_FIELDS.RANK_RESULT}=([-\d|\|]+)"
 @click.command(help="Output rankresults in TSV")
 @click.argument("vcf_file1", type=click.Path(exists=True))
 @click.option(
-    "--positions",
-    "-p",
+    "--positions_file",
+    "-f",
     type=click.File("r"),
     default="-",
     help='File with chromosome positions (or "-" for stdin)',
 )
-def parse_rank_result(vcf_file1: str, positions: io.TextIOBase) -> None:
+@click.option(
+    "--position",
+    "-r",
+    type=str,
+    default=None,
+    help="chrname:start-end",
+)
+def parse_rank_result(
+    vcf_file1: str, positions_file: io.TextIOBase, position: str | None = None
+) -> None:
     vcf = VCF(vcf_file1)
     rank_score_components = rank_keys(vcf)
 
@@ -38,15 +48,32 @@ def parse_rank_result(vcf_file1: str, positions: io.TextIOBase) -> None:
         + rank_score_components
         + [RANK_RESULT_SUM_COL_NAME, RANK_SCORE_COL_NAME]
     )
+    positions = []
+    if position is not None:
+        position = position.split(":")
+        chr = position[0]
+
+        position = position[1].split("-")
+        position = [chr] + position
+        positions.append("\t".join(position))
+    else:
+        for position in positions_file:
+            position = position.split(":")
+            chr = position[0]
+
+            position = position[1].split("-")
+            position = [chr] + position
+            positions.append("\t".join(position))
 
     for line in positions:
-        if line.startswith("#"):
+        if line.startswith("#") or line.startswith("CHROM"):
             continue
 
-        chromosome, position = line.split("\t")
+        logging.warning(line)
+        chromosome, start, end = line.split("\t")
 
         for variant in vcf.get_range(
-            chromosome=chromosome, start=int(position), end=int(position), _skip_progress=True
+            chromosome=chromosome, start=int(start), end=int(end), _skip_progress=True
         ):
             result = get_rankresult(variant)
 
