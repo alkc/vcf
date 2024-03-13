@@ -31,7 +31,7 @@ def check_vcf(vcf_file):
     table = get_completeness_table()
 
     header = vcf.get_header()
-    header = [row for row in header.split("\n") if row.startswith("##INFO")]
+    header = [row for row in header if row.startswith("##INFO")]
 
     info_fields = [x.split("=")[2].split(",")[0] for x in header]
     counter = Counter()

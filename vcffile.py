@@ -86,7 +86,7 @@ class VCF:
 
     variants = get_rows
 
-    def get_header(self):
+    def get_header(self) -> list:
         header = []
 
         with self._open_func(self.vcf_file, "rt") as vcf:
@@ -95,7 +95,7 @@ class VCF:
                     break
                 header.append(line)
 
-        return "\n".join(header)
+        return header
 
     def get_info_meta(self, id: str):
         header = self.get_header()
