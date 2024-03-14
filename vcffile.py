@@ -102,8 +102,10 @@ class VCF:
 
         query = f"##INFO=<ID={id}"
 
-        result_idx = header.find(query)
-        header = header[result_idx:]
+        for header_row in header:
+            if header_row.startswith(query):
+                header = header_row
+
         header = header.split(">")[0]
         header = header.removeprefix("##INFO=<")
         header = header.split(",")
