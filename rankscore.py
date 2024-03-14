@@ -130,8 +130,8 @@ def rankscore(
         plot_data["y"] = [None if y == "NA" else y for y in plot_data["y"]]
 
         plot(
-            plot_data["x"],
-            plot_data["y"],
+            xs=plot_data["x"],
+            ys=plot_data["y"],
             title=files,
             lines=False,
             color=True,
