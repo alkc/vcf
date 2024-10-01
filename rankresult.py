@@ -8,35 +8,44 @@ import click
 
 from constants import INFO_FIELDS
 from rankscore import _rankscore
+from variants import get_info_field
 from vcffile import VCF
+
+logging.basicConfig(level=logging.DEBUG)
 
 RANK_SCORE_COL_NAME = "info_field_rank_score"
 RANK_RESULT_SUM_COL_NAME = "rank_result_sum"
 RANK_RESULT_PATTERN = rf"{INFO_FIELDS.RANK_RESULT}=([-\d|\|]+)"
+# REVEL_SCORE_COL_NAME= "REVEL_rankscore"
+# REVEL_RANK_SCORE_COL_NAME= "REVEL_score"
+CLINSIG = "CLNSIG"
+CLINSIG_MOD = "CLNSIG_MOD"
 
 
 @click.command(help="Output rankresults in TSV")
 @click.argument("vcf_file1", type=click.Path(exists=True))
-@click.option(
-    "--positions_file",
-    "-f",
-    type=click.File("r"),
-    default="-",
-    help='File with chromosome positions (or "-" for stdin)',
-)
-@click.option(
-    "--position",
-    "-r",
-    type=str,
-    default=None,
-    help="chrname:start-end",
-)
+# @click.option(
+#     "--positions_file",
+#     "-f",
+#     type=click.File("r"),
+#     default="-",
+#     help='File with chromosome positions (or "-" for stdin)',
+# )
+# @click.option(
+#     "--position",
+#     "-r",
+#     type=str,
+#     default=None,
+#     help="chrname:start-end",
+# )
 def parse_rank_result(
-    vcf_file1: str, positions_file: io.TextIOBase, position: str | None = None
+    vcf_file1: str, positions_file: io.TextIOBase | None = None, position: str | None = None
 ) -> None:
+    logging.debug("opening %s", vcf_file1)
     vcf = VCF(vcf_file1)
     rank_score_components = rank_keys(vcf)
 
+    logging.debug("expected rank score components: %s", rank_score_components)
     output_header = rank_score_components.copy()
     output_header.append(RANK_RESULT_SUM_COL_NAME)
     output_header.append(RANK_SCORE_COL_NAME)
@@ -46,50 +55,30 @@ def parse_rank_result(
     tsv_header = (
         ["CHROM", "POS", "REF", "ALT"]
         + rank_score_components
+        + [CLINSIG, CLINSIG_MOD, INFO_FIELDS.MOST_SEVERE_CONSEQUENCE]
         + [RANK_RESULT_SUM_COL_NAME, RANK_SCORE_COL_NAME]
     )
-    positions = []
-    if position is not None:
-        position = position.split(":")
-        chr = position[0]
 
-        position = position[1].split("-")
-        position = [chr] + position
-        positions.append("\t".join(position))
-    else:
-        for position in positions_file:
-            position = position.split(":")
-            chr = position[0]
+    for variant in vcf.variants(_skip_progress=True):
+        result = get_rankresult(variant)
 
-            position = position[1].split("-")
-            position = [chr] + position
-            positions.append("\t".join(position))
-
-    for line in positions:
-        if line.startswith("#") or line.startswith("CHROM"):
+        if not result:
             continue
 
-        logging.warning(line)
-        chromosome, start, end = line.split("\t")
+        total_score = sum(int(score) for score in result)
 
-        for variant in vcf.get_range(
-            chromosome=chromosome, start=int(start), end=int(end), _skip_progress=True
-        ):
-            result = get_rankresult(variant)
+        result.append(total_score)
+        result.append(_rankscore(variant))
 
-            if not result:
-                continue
+        result = dict(zip(output_header, result))
 
-            total_score = sum(int(score) for score in result)
+        result[CLINSIG] = get_info_field(variant, CLINSIG)
+        result[CLINSIG_MOD] = get_info_field(variant, CLINSIG_MOD)
 
-            result.append(total_score)
-            result.append(_rankscore(variant))
+        id = get_id_fields(variant)
 
-            result = dict(zip(output_header, result))
-            id = get_id_fields(variant)
-
-            id.update(result)
-            lines.append(id)
+        id.update(result)
+        lines.append(id)
 
     stdout = io.StringIO()
     writer = csv.DictWriter(stdout, fieldnames=tsv_header, delimiter="\t")
@@ -133,4 +122,5 @@ def get_rankresult(variant: str) -> int | None:
 
 
 if __name__ == "__main__":
+    logging.info("Hello.")
     parse_rank_result()
