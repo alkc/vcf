@@ -74,6 +74,9 @@ def parse_rank_result(
 
         result[CLINSIG] = get_info_field(variant, CLINSIG)
         result[CLINSIG_MOD] = get_info_field(variant, CLINSIG_MOD)
+        result[INFO_FIELDS.MOST_SEVERE_CONSEQUENCE] = get_info_field(
+            variant, INFO_FIELDS.MOST_SEVERE_CONSEQUENCE
+        )
 
         id = get_id_fields(variant)
 
